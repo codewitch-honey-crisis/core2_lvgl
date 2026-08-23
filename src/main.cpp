@@ -21,10 +21,11 @@ ft6336<320,280> touch(esp_i2c<1,21,22>::instance);
 
 static uint8_t lcd_transfer_buffer1[320*24*2];
 static uint8_t lcd_transfer_buffer2[320*24*2];
-static lv_disp_drv_t disp_drv;
+static lv_display_t* disp_drv;
+static lv_indev_t * inp_dev;
 static bool lvgl_init = false;
 lv_obj_t * ui_Screen;
-void lvgl_port_tp_read(lv_indev_drv_t * indev, lv_indev_data_t * data)
+void lvgl_port_tp_read(lv_indev_t * indev, lv_indev_data_t * data)
 {
     uint16_t x,y;
     if(touch.xy(&x,&y)) {
@@ -45,17 +46,17 @@ static bool lcd_flush_ready(esp_lcd_panel_io_handle_t panel_io,
                             void *user_ctx)
 {
     if(lvgl_init) {
-        lv_disp_flush_ready(&disp_drv);
+        lv_disp_flush_ready(disp_drv);
         ++lcd_flush_ready_count;
     }
     return true;
 }
 
-void lvgl_port_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
+void lvgl_port_disp_flush(lv_display_t * disp, const lv_area_t * area, uint8_t * px_buf)
 {
     if(lvgl_init) {
         Serial.printf("FLUSH (%d,%d)-(%d,%d)\n",area->x1,area->y1,area->x2,area->y2);
-        esp_lcd_panel_draw_bitmap(lcd_handle,area->x1,area->y1,area->x2+1,area->y2+1,color_p);
+        esp_lcd_panel_draw_bitmap(lcd_handle,area->x1,area->y1,area->x2+1,area->y2+1,px_buf);
     }
 }
 
@@ -124,7 +125,7 @@ static void lcd_panel_init()
     esp_lcd_panel_disp_off(lcd_handle, true);
 #endif
 }
-void lvgl_print(const char* buf) {
+void lvgl_print(lv_log_level_t level, const char * buf) {
     Serial.println(buf);
 }
 void setup()
@@ -152,44 +153,20 @@ void setup()
     lv_init();
     lv_log_register_print_cb(lvgl_print);
     /* Initialize LVGL buffers */
-    static lv_disp_draw_buf_t draw_buf;
-    /* Using double buffers is faster than single buffer */
-    /* Using internal SRAM is faster than PSRAM */
-    lv_disp_draw_buf_init(&draw_buf, lcd_transfer_buffer1, lcd_transfer_buffer2, sizeof(lcd_transfer_buffer1)/2);
-
-    /* Initialize the display device */
-    lv_disp_drv_init(&disp_drv);
+     disp_drv = lv_display_create(320, 240);
     /* Change the following line to your display resolution */
-    disp_drv.hor_res = 320;
-    disp_drv.ver_res = 240;
-    disp_drv.flush_cb = lvgl_port_disp_flush;
-    disp_drv.draw_buf = &draw_buf;
-    lv_disp_drv_register(&disp_drv);
-
+     lv_display_set_buffers(disp_drv, lcd_transfer_buffer1, lcd_transfer_buffer2,sizeof(lcd_transfer_buffer1), LV_DISPLAY_RENDER_MODE_PARTIAL);
     /* Initialize the input device */
-    static lv_indev_drv_t indev_drv;
-    lv_indev_drv_init(&indev_drv);
-    indev_drv.type = LV_INDEV_TYPE_POINTER;
-    indev_drv.read_cb = lvgl_port_tp_read;
-    lv_indev_drv_register(&indev_drv);
-
+    inp_dev = lv_indev_create(); 
+    lv_indev_set_type(inp_dev,LV_INDEV_TYPE_POINTER);
+    lv_indev_set_read_cb(inp_dev,lvgl_port_tp_read);
+    
     ui_Screen = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_Screen, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
     lv_obj_set_style_bg_color(ui_Screen, lv_color_hex(0xC778FF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_Screen, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    lv_fs_sd_init();
-
-    lv_fs_file_t file;
-    
-
-    lv_obj_t * wp;
-    lvgl_init = true;
-    wp = lv_img_create(ui_Screen);
-    /* Assuming a File system is attached to letter 'A'
-     * E.g. set LV_USE_FS_STDIO 'A' in lv_conf.h */
-    lv_img_set_src(wp, "S:/minou.jpg");
-    lv_obj_align(wp, LV_ALIGN_DEFAULT, 0, 0);     /*Align next to the source image*/
+    // add controls here
 
 }
 void loop()
