@@ -11,7 +11,6 @@
 #include <ft6336.hpp>
 #include <lvgl.h>
 #include <SD.h>
-#include <lvgl_sd_fs.hpp>
 namespace arduino {}
 using namespace arduino;
 
