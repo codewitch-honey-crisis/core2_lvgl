@@ -145,8 +145,7 @@ void setup()
         Serial.println("SD card initialization failure");
         return;
     }*/
-    
-    Serial.println("Filesystem mounted");
+
     
     /* Initialize LVGL core */
     lv_init();
@@ -155,7 +154,8 @@ void setup()
      disp_drv = lv_display_create(320, 240);
     /* Change the following line to your display resolution */
      lv_display_set_buffers(disp_drv, lcd_transfer_buffer1, lcd_transfer_buffer2,sizeof(lcd_transfer_buffer1), LV_DISPLAY_RENDER_MODE_PARTIAL);
-    /* Initialize the input device */
+    lv_display_set_flush_cb(disp_drv,lvgl_port_disp_flush);
+     /* Initialize the input device */
     inp_dev = lv_indev_create(); 
     lv_indev_set_type(inp_dev,LV_INDEV_TYPE_POINTER);
     lv_indev_set_read_cb(inp_dev,lvgl_port_tp_read);
